@@ -16,6 +16,7 @@ def parse(state):
     for m in cs["monsters"]:
         monsters.append({
             "name": m["name"],
+            "id": m.get("id", ""),
             "hp": m["current_hp"],
             "block": m["block"],
             "gone": bool(m.get("is_gone")),

@@ -63,9 +63,14 @@ def render(state):
     incoming = sum(m["intent_damage"] * m["intent_hits"] for m in mons)
     out.append("turn %s | HP %s/%s | energy %s | block %s | incoming %s" % (
         cs["turn"], g["current_hp"], g["max_hp"], kw["energy"], kw["block"], incoming))
-    for m in mons:
-        out.append("   %-18s %3d hp  %3d blk  %s" % (
-            m["name"], m["hp"], m["block"],
+    for idx, m in enumerate(kw["monsters"]):
+        if m["gone"]:
+            continue
+        label = m["name"]
+        if m.get("id") and m["id"] != m["name"]:
+            label = "%s [%s]" % (m["name"], m["id"])
+        out.append("   #%d %-26s %3d hp  %3d blk  %s" % (
+            idx, label, m["hp"], m["block"],
             " ".join("%s%s" % (k, v) for k, v in m["powers"].items())))
     from .cards import ATTACKS, BLOCKS
     from .sim import POWERS, ENERGY_CARDS, DRAW_CARDS, ADDS_TO_HAND

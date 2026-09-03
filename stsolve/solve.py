@@ -62,7 +62,8 @@ def frontier(state, max_depth=6):
             "raw_damage": sim.damage_dealt,
             "hp_lost": hp_lost,
             "lethal": killed_all,
-            "line": [c["name"] if t is None else "%s->%s" % (c["name"], sim.monsters[t]["name"])
+            "line": [c["name"] if t is None else "%s->#%d %s" % (
+                c["name"], t, sim.monsters[t].get("id") or sim.monsters[t]["name"])
                      for c, t in seq],
             "draws": [c["name"] for c, _ in seq if c["name"] in DRAW_CARDS],
         })
