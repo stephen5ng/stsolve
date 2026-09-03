@@ -16,6 +16,11 @@ ATTACKS = {
     "Reckless Charge":  (7, 1, False),
     "Perfected Strike": (None, 1, False),   # 6 + 2 per "Strike" card in deck
     "Whirlwind":        (5, None, True),    # X hits, X = energy spent
+    "Immolate":         (21, 1, True),      # also adds a Burn to the discard
+    "Clash":            (14, 1, False),
+    "Pommel Strike":    (9, 1, False),
+    "Uppercut":         (13, 1, False),
+    "Heavy Blade":      (14, 1, False),     # Strength counts 3x; not modelled
 }
 
 # name -> block gained

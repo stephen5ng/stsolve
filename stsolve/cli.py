@@ -67,8 +67,18 @@ def render(state):
         out.append("   %-18s %3d hp  %3d blk  %s" % (
             m["name"], m["hp"], m["block"],
             " ".join("%s%s" % (k, v) for k, v in m["powers"].items())))
+    from .cards import ATTACKS, BLOCKS
+    from .sim import POWERS, ENERGY_CARDS, DRAW_CARDS, ADDS_TO_HAND
+    known = set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS) \
+        | set(DRAW_CARDS) | set(ADDS_TO_HAND)
+    unknown = sorted({c["name"] for c in cs["hand"]
+                      if c["name"] not in known and c["cost"] >= 0})
     r = frontier(state)
     out.append("   (%d sequences)" % r["considered"])
+    if unknown:
+        out.append("   !! UNMODELLED IN HAND: %s -- frontier is INCOMPLETE,"
+                   % ", ".join(unknown))
+        out.append("      these cards were treated as doing nothing")
     if r["lethal"]:
         out.append("   LETHAL: %s" % " -> ".join(r["lethal"]["line"]))
     zero = [p for p in r["frontier"] if p["hp_lost"] == 0]
