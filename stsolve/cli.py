@@ -12,7 +12,33 @@ from .solve import frontier
 from .state import parse
 
 
-def latest_combat_state(path):
+def last_state(path):
+    """The most recent state in the log, whatever it is."""
+    last = None
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                last = json.loads(line)
+            except ValueError:
+                continue
+    return last
+
+
+def latest_combat_state(path, must_be_current=True):
+    """Most recent in-combat state.
+
+    With must_be_current (the default, and what you want live), returns None
+    unless the very last logged state is in combat -- otherwise you'd be shown
+    a stale frontier from a fight that already ended.
+    """
+    if must_be_current:
+        s = last_state(path)
+        if s and (s.get("game_state") or {}).get("combat_state"):
+            return s
+        return None
     last = None
     with open(path) as f:
         for line in f:
@@ -55,10 +81,12 @@ def render(state):
 
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "data/states.jsonl"
-    s = latest_combat_state(path)
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    any_state = "--any" in sys.argv          # for post-hoc log analysis
+    path = args[0] if args else "data/states.jsonl"
+    s = latest_combat_state(path, must_be_current=not any_state)
     if s is None:
-        print("no in-combat state found in", path)
+        print("not currently in combat")
         return 1
     print(render(s))
     return 0
