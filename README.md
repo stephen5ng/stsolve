@@ -47,6 +47,7 @@ These were all genuinely contested while playing, and the log decides them:
 | Sharp Hide charges per attack **card**, not per hit | confirmed | Twin Strike (2 hits) → 3 damage; Whirlwind (3 hits) → 3 |
 | Dazed is Ethereal and leaves the deck on its own | confirmed | 247 sightings in the exhaust pile; Wound and Slimed: zero |
 | Spike Slime's Split fires at **end of turn**, not on crossing 50% | confirmed | The large slime sat at 18/64, well under the 32 threshold, un-split — then became 2×18 on the end-turn transition |
+| Malleable gives block per attack, growing by 1 each trigger | **modelled, not yet validated** | check is in place and activates as soon as such a fight is recorded |
 | `draw_pile` order in the protocol is real | **refuted** | drawn card matched top-of-pile in 2 of 14 draws. Contents are known; order is not |
 
 That last one matters for design: draws are a known *distribution*, not a
@@ -82,6 +83,18 @@ Perfected Strike 6 + 2 per deck card whose name contains "Strike"
 Whirlwind 5 x (energy spent), hits all
 ```
 
+Reactive powers that change the arithmetic:
+
+    Flight      halves damage; stripped by hit COUNT -> multi-hit is good
+    Malleable   target gains block per attack, +1 each trigger, resets on its
+                turn -> multi-hit is bad, one big hit is good
+    Sharp Hide  3 HP per attack CARD (not per hit)
+    Artifact    absorbs the next debuff (so Bash's Vulnerable is wasted)
+
+Note that Flight and Malleable pull in exactly opposite directions, which is
+why the frontier ranks by **HP removed** rather than raw damage -- damage
+absorbed by block a target just generated is not progress.
+
 ## Limitations (the honest list)
 
 **It is a single-turn solver, and single-turn optimal is not always right.**
@@ -93,9 +106,9 @@ Two real cases from the recorded run:
 - Against Gremlin Nob it correctly avoids Berserk (self-Vulnerable costs HP this
   turn) without knowing Berserk pays +1 energy for the rest of the fight.
 
-**Reactive enemy powers aren't modelled.** Gremlin Nob's Enrage (gains Strength
-whenever you play a Skill) is invisible to the search, so it will happily
-recommend Skills into it.
+**Some reactive enemy powers aren't modelled.** Gremlin Nob's Enrage (gains
+Strength whenever you play a Skill) is invisible to the search, so it will
+happily recommend Skills into it. Flight and Malleable *are* modelled.
 
 **Also out of scope:** anything multi-turn, card rewards, pathing, campfires,
 shops, potions, and whether a fight is worth taking at all.

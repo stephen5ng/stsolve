@@ -29,7 +29,8 @@ class Sim:
         self.monsters = copy.deepcopy(monsters)
         self.deck = deck
         self.draw_pile = list(draw_pile or [])
-        self.damage_dealt = 0
+        self.damage_dealt = 0      # total, incl. damage eaten by block
+        self.hp_damage = 0         # damage that actually removed HP
         self.self_damage = 0          # Sharp Hide, Bloodletting
         self.log = []
 
@@ -37,6 +38,7 @@ class Sim:
         s = Sim(self.energy, self.hp, self.block, self.pp, self.monsters,
                 self.deck, self.draw_pile)
         s.damage_dealt = self.damage_dealt
+        s.hp_damage = self.hp_damage
         s.self_damage = self.self_damage
         s.log = list(self.log)
         return s
@@ -56,7 +58,7 @@ class Sim:
         return max(0, d)
 
     def _apply(self, target, dmg):
-        """Damage eats block first, then HP. Returns damage actually dealt."""
+        """Damage eats block first, then HP. Returns (total, hp_removed)."""
         absorbed = min(target["block"], dmg)
         target["block"] -= absorbed
         rest = dmg - absorbed
@@ -64,7 +66,22 @@ class Sim:
         target["hp"] -= dealt
         if target["hp"] <= 0:
             target["gone"] = True
-        return absorbed + dealt
+        return absorbed + dealt, dealt
+
+    @staticmethod
+    def _on_attacked(target):
+        """Reactive powers that fire when a target takes an attack.
+
+        Malleable: gains block each time it is attacked, and the amount grows
+        by 1 per trigger (it resets at the start of the enemy's own turn, so
+        it does not carry across turns). This is why multi-hit cards are bad
+        into Malleable and single big hits are good -- the exact opposite of
+        Flight, where hit count is what matters.
+        """
+        mal = target["powers"].get("Malleable", 0)
+        if mal:
+            target["block"] += mal
+            target["powers"]["Malleable"] = mal + 1
 
     # ------------------------------------------------------------- play a card
     def playable(self, card):
@@ -105,9 +122,13 @@ class Sim:
                 for t in list(targets):
                     if t["gone"]:
                         continue
-                    self.damage_dealt += self._apply(t, self._attack_damage(base, t))
+                    total, hp = self._apply(t, self._attack_damage(base, t))
+                    self.damage_dealt += total
+                    self.hp_damage += hp
                     if t["powers"].get("Flight", 0) > 0:
                         t["powers"]["Flight"] -= 1
+                    if not t["gone"]:
+                        self._on_attacked(t)
             # Bash applies Vulnerable unless Artifact eats it
             if name.startswith("Bash"):
                 for t in targets:

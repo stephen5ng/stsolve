@@ -58,7 +58,8 @@ def frontier(state, max_depth=6):
         hp_lost = sim.end_turn()
         killed_all = not sim.alive()
         scored.append({
-            "damage": sim.damage_dealt,
+            "damage": sim.hp_damage,
+            "raw_damage": sim.damage_dealt,
             "hp_lost": hp_lost,
             "lethal": killed_all,
             "line": [c["name"] if t is None else "%s->%s" % (c["name"], sim.monsters[t]["name"])

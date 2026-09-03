@@ -94,3 +94,33 @@ for i, t in enumerate(trans):
         for m in a["monsters"]:
             if not m.get("is_gone"):
                 print("    AFTER  %-18s %s/%s" % (m["name"], m["current_hp"], m["max_hp"]))
+
+
+# ---------------------------------------------------------------- MALLEABLE
+hdr("CLAIM: Malleable gives the target block per attack, amount +1 each time")
+rows = 0
+for t in trans:
+    if t["kind"] != "play":
+        continue
+    c = t["detail"]["card"]
+    if c not in ATTACKS:
+        continue
+    b, a = combat(t["before"]), combat(t["after"])
+    for mb, ma in zip(b["monsters"], a["monsters"]):
+        pw_b, pw_a = powers(mb), powers(ma)
+        if "Malleable" not in pw_b:
+            continue
+        rows += 1
+        hits = t["detail"]["energy_spent"] if c == "Whirlwind" else ATTACKS[c][1]
+        # each hit should add the current amount, then bump it by 1
+        amt = pw_b["Malleable"]
+        expect_gain = sum(amt + i for i in range(hits or 1))
+        expect_amt = amt + (hits or 1)
+        print("  %-16s hits=%-2s  block %3s->%-3s (net %+d)  Malleable %s->%s"
+              % (c, hits, mb["block"], ma["block"],
+                 ma["block"] - mb["block"], amt, pw_a.get("Malleable")))
+        print("      predicted: block +%d before absorption, Malleable -> %d"
+              % (expect_gain, expect_amt))
+if rows == 0:
+    print("  no Malleable data logged yet -- this check activates once a")
+    print("  Snake Plant (or similar) fight is recorded.")
