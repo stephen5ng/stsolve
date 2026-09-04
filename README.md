@@ -123,6 +123,13 @@ after Strength but before Weak. Every other relic is still invisible, and
 because the unknown-card check only inspects your hand, relics never trigger a
 warning -- so a relic the model does not know about fails silently.
 
+**Draw cards are shown, not modelled.** The frontier is computed over the hand
+you can see; what a draw turns up is unknown. Rather than guess, the CLI names
+the draw cards in your hand and flags any line that plays one late. A draw
+costs the same whenever you play it, so playing it first is free information --
+this is the difference between seeing an Ethereal Carnage in time to play it
+and watching it exhaust at end of turn.
+
 **Intent damage is a snapshot, not a base value.** CommunicationMod's
 `move_adjusted_damage` already includes the monster's Strength, any Weak on it,
 and any Vulnerable on you *at the moment the intent was set*. Applying those

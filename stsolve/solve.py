@@ -94,6 +94,11 @@ def frontier(state, max_depth=6):
                     sim.monsters[t].get("id") or sim.monsters[t]["name"]))
                      for c, t in seq],
             "draws": [c["name"] for c, _ in seq if c["name"] in DRAW_CARDS],
+            # Index in the line, not the rendered string: a targeted draw like
+            # Pommel Strike renders as "Pommel Strike->#0 Foo" and would never
+            # match its own name.
+            "first_draw": next((i for i, (c, _) in enumerate(seq)
+                                if c["name"] in DRAW_CARDS), None),
         })
 
     front = _pareto(scored)

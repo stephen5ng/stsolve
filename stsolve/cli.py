@@ -72,7 +72,7 @@ def render(state):
         out.append("   #%d %-26s %3d hp  %3d blk  %s" % (
             idx, label, m["hp"], m["block"],
             " ".join("%s%s" % (k, v) for k, v in m["powers"].items())))
-    from .sim import KNOWN_CARDS, DELIBERATELY_UNSCORED
+    from .sim import KNOWN_CARDS, DELIBERATELY_UNSCORED, DRAW_CARDS
     from .potions import POTIONS, UNSCOREABLE
     in_hand = {c["name"] for c in cs["hand"] if c["cost"] >= 0}
     unknown = sorted(in_hand - KNOWN_CARDS)
@@ -91,6 +91,14 @@ def render(state):
     if unscored:
         out.append("   -- worth 0 this turn, huge across the fight, so left "
                    "unscored on purpose: %s" % ", ".join(unscored))
+    draws_in_hand = sorted(in_hand & set(DRAW_CARDS))
+    if draws_in_hand:
+        out.append("   -- hand draws cards (%s). The frontier only knows the "
+                   "cards you can" % ", ".join(draws_in_hand))
+        out.append("      see, so play draws FIRST and re-solve. A draw costs "
+                   "the same whenever")
+        out.append("      you play it; playing it last throws away the option "
+                   "value for free.")
     if unknown_potions:
         why = ("known but not scoreable in one turn"
                if all(n in UNSCOREABLE for n in unknown_potions) else "unknown")
@@ -104,11 +112,14 @@ def render(state):
     for p in r["frontier"]:
         # hp_lost goes negative when healing outweighs damage taken.
         hp = "hp %s%-4d" % ("-" if p["hp_lost"] >= 0 else "+", abs(p["hp_lost"]))
-        out.append("   dmg %-4d  %s %s%s" % (
+        # A line whose draw isn't the first thing it does is spending
+        # information it could have had for free.
+        late = "   << draw played late" if p["first_draw"] else ""
+        out.append("   dmg %-4d  %s %s%s%s" % (
             p["damage"], hp,
             "" if not p["potions"] else "(%d potion%s) " % (
                 p["potions"], "" if p["potions"] == 1 else "s"),
-            " -> ".join(p["line"]) or "(end turn)"))
+            " -> ".join(p["line"]) or "(end turn)", late))
     return "\n".join(out)
 
 
