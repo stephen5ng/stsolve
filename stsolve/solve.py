@@ -9,7 +9,7 @@ import itertools
 from .sim import Sim, DRAW_CARDS
 from .state import parse, hand as parse_hand
 
-MAX_SEQUENCES = 200000
+MAX_SEQUENCES = 3000000
 
 
 def _targets(sim, card):
@@ -41,7 +41,7 @@ def enumerate_lines(sim0, cards, max_depth=6):
                 rec(nxt, rest, seq + [(card, tgt)])
 
     rec(sim0, cards, [])
-    return results
+    return results, seen > MAX_SEQUENCES
 
 
 def frontier(state, max_depth=6):
@@ -51,7 +51,7 @@ def frontier(state, max_depth=6):
         return None
     sim0 = Sim(**kw)
     cards = parse_hand(state)
-    lines = enumerate_lines(sim0, cards, max_depth)
+    lines, truncated = enumerate_lines(sim0, cards, max_depth)
 
     scored = []
     for sim, seq in lines:
@@ -75,5 +75,5 @@ def frontier(state, max_depth=6):
         if best is None or r["hp_lost"] < best:
             front.append(r)
             best = r["hp_lost"]
-    return {"frontier": front, "considered": len(lines),
+    return {"frontier": front, "considered": len(lines), "truncated": truncated,
             "lethal": next((r for r in scored if r["lethal"]), None)}

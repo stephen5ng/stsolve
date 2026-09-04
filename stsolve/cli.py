@@ -81,7 +81,10 @@ def render(state):
     unknown = sorted({c["name"] for c in cs["hand"]
                       if c["name"] not in known and c["cost"] >= 0})
     r = frontier(state)
-    out.append("   (%d sequences)" % r["considered"])
+    out.append("   (%d sequences)%s" % (
+        r["considered"],
+        "  !! SEARCH TRUNCATED -- frontier may be missing better lines"
+        if r.get("truncated") else ""))
     if unknown:
         out.append("   !! UNMODELLED IN HAND: %s -- frontier is INCOMPLETE,"
                    % ", ".join(unknown))

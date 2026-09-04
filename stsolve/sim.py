@@ -171,5 +171,9 @@ class Sim:
             if "Weakened" in m["powers"]:
                 dmg = int(dmg * 0.75)
             incoming += dmg
+        # Vulnerable on YOU raises incoming by 50%. Berserk applies it to
+        # yourself, so any line playing Berserk pays for it the same turn.
+        if "Vulnerable" in self.pp:
+            incoming = int(incoming * 1.5)
         taken = max(0, incoming - block)
         return self.self_damage + taken
