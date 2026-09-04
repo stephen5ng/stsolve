@@ -214,6 +214,45 @@ s = sim(energy=3, monsters=[monster(hp=100), monster(hp=100)])
 s.play(card("Whirlwind+", 0), None)
 check("Whirlwind+ spends all energy (3 hits x 8 x 2 enemies)", s.hp_damage, 48)
 
+print("Curl Up")
+# Floor 1, Silent: FuzzyLouseDefensive 13 hp / Curl Up 7 and FuzzyLouseNormal
+# 12 hp / Curl Up 5. Two Strikes, one each, took them to 7 and 6 -- so the
+# damage lands and only then does the block go up.
+s = sim(energy=3, monsters=[monster(hp=13, powers={"Curl Up": 7}),
+                            monster(hp=12, powers={"Curl Up": 5})])
+s.play(card("Strike"), 0)
+s.play(card("Strike"), 1)
+check("Curl Up does not blunt the hit that triggers it",
+      [m["hp"] for m in s.monsters], [7, 6])
+check("both louses are now sitting behind their block",
+      [m["block"] for m in s.monsters], [7, 5])
+
+# Piling everything into one target is the trap: the second Strike is eaten.
+s = sim(energy=3, monsters=[monster(hp=13, powers={"Curl Up": 7})])
+s.play(card("Strike"), 0)
+s.play(card("Strike"), 0)
+check("second Strike into the same louse is fully absorbed",
+      s.monsters[0]["hp"], 7)
+check("and it only chewed 6 off the 7 block", s.monsters[0]["block"], 1)
+
+# Spent on the first trigger, not once per hit.
+s = sim(energy=3, monsters=[monster(hp=40, powers={"Curl Up": 7})])
+s.play(card("Twin Strike"), 0)
+check("Curl Up fires once, not per hit", s.monsters[0]["block"], 2)
+check("Curl Up is consumed", "Curl Up" in s.monsters[0]["powers"], False)
+
+# CurlUpPower.onAttacked guards on damageAmount < currentHealth: a killing
+# blow pays out nothing, which is why lethal math can ignore Curl Up entirely.
+s = sim(energy=3, monsters=[monster(hp=6, powers={"Curl Up": 7})])
+s.play(card("Strike"), 0)
+check("a lethal hit never grants Curl Up block", s.monsters[0]["gone"], True)
+
+# Malleable still works, and the two stack on the same trigger path.
+s = sim(energy=3, monsters=[monster(hp=40, powers={"Malleable": 3,
+                                                  "Curl Up": 7})])
+s.play(card("Strike"), 0)
+check("Malleable and Curl Up both fire", s.monsters[0]["block"], 10)
+
 print()
 if FAILURES:
     print("%d FAILURE(S)" % len(FAILURES))

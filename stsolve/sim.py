@@ -141,7 +141,7 @@ class Sim:
         return absorbed + dealt, dealt
 
     @staticmethod
-    def _on_attacked(target):
+    def _on_attacked(target, dmg):
         """Reactive powers that fire when a target takes an attack.
 
         Malleable: gains block each time it is attacked, and the amount grows
@@ -149,11 +149,27 @@ class Sim:
         it does not carry across turns). This is why multi-hit cards are bad
         into Malleable and single big hits are good -- the exact opposite of
         Flight, where hit count is what matters.
+
+        Curl Up: block once, on the first attack that connects, then the power
+        is spent. ``dmg`` is the damage BEFORE the target's block, which is
+        what CurlUpPower.onAttacked sees -- powers run before block is
+        subtracted. The caller skips this whole method when the hit was
+        lethal, which is the game's ``damageAmount < currentHealth`` guard:
+        a killing blow never pays out Curl Up.
+
+        The tactical consequence is that the card which triggers Curl Up gets
+        full value and everything after it that turn hits the new block. Lead
+        with your biggest attack, not a chip hit.
         """
         mal = target["powers"].get("Malleable", 0)
         if mal:
             target["block"] += mal
             target["powers"]["Malleable"] = mal + 1
+
+        curl = target["powers"].get("Curl Up", 0)
+        if curl and dmg > 0:
+            target["block"] += curl
+            del target["powers"]["Curl Up"]
 
     # ------------------------------------------------------------- play a card
     def playable(self, card):
@@ -311,15 +327,15 @@ class Sim:
                 for t in list(targets):
                     if t["gone"]:
                         continue
-                    total, hp = self._apply(
-                        t, self._attack_damage(base, t, double=pen_nib))
+                    raw = self._attack_damage(base, t, double=pen_nib)
+                    total, hp = self._apply(t, raw)
                     self.damage_dealt += total
                     self.hp_damage += hp
                     healed_this_card += hp
                     if t["powers"].get("Flight", 0) > 0:
                         t["powers"]["Flight"] -= 1
                     if not t["gone"]:
-                        self._on_attacked(t)
+                        self._on_attacked(t, raw)
             if self.pen_nib_counter is not None:
                 self.pen_nib_counter += 1
                 if self.pen_nib_counter == 9:
