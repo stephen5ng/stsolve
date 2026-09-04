@@ -17,9 +17,10 @@ def monster(hp=100, powers=None, dmg=0, hits=1):
 
 
 def sim(energy=3, hp=50, max_hp=80, block=0, powers=None, monsters=None,
-        bark=False):
+        bark=False, relics=None, pen_nib=None):
     return Sim(energy, hp, block, powers or {}, monsters or [monster()], [],
-               max_hp=max_hp, sacred_bark=bark)
+               max_hp=max_hp, sacred_bark=bark, relics=relics,
+               pen_nib_counter=pen_nib)
 
 
 def potion(name, targeted=False):
@@ -125,6 +126,42 @@ check("baseline: no Berserk", s.end_turn(), 20)
 s = sim(energy=3, monsters=[monster(dmg=10, hits=2)])
 s.play(card("Berserk", 0), None)
 check("Berserk's own Vulnerable does land, per hit", s.end_turn(), 30)
+
+print()
+print("relics")
+s = sim(energy=3, monsters=[monster(hp=500)])
+s.play(card("Twin Strike", 1), 0)
+check("Twin Strike without Strike Dummy", s.hp_damage, 10)
+
+s = sim(energy=3, relics=["Strike Dummy"], monsters=[monster(hp=500)])
+s.play(card("Twin Strike", 1), 0)
+check("Strike Dummy is +3 per HIT, not per card", s.hp_damage, 16)
+
+s = sim(energy=3, relics=["Strike Dummy"], monsters=[monster(hp=500)])
+s.play(card("Bludgeon", 3), 0)
+check("...and only on Strike-named cards", s.hp_damage, 32)
+
+s = sim(energy=3, powers={"Pen Nib": 1}, monsters=[monster(hp=500)])
+s.play(card("Strike", 1), 0)
+check("Pen Nib doubles the attack", s.hp_damage, 12)
+s.play(card("Strike", 1), 0)
+check("...once, then it is spent", s.hp_damage, 12 + 6)
+
+s = sim(energy=3, powers={"Pen Nib": 1, "Weakened": 1}, monsters=[monster(hp=500)])
+s.play(card("Strike", 1), 0)
+check("Pen Nib doubles BEFORE Weak (12*.75=9, not 4*2=8)", s.hp_damage, 9)
+
+s = sim(energy=9, pen_nib=8, monsters=[monster(hp=500)])
+s.play(card("Strike", 1), 0)
+check("the attack that arms Pen Nib is not itself doubled", s.hp_damage, 6)
+s.play(card("Strike", 1), 0)
+check("...the next one is", s.hp_damage, 6 + 12)
+
+# The killing blow: Pen Nib armed, Strength 11, six cards left after playing it.
+s = sim(energy=3, powers={"Strength": 11, "Pen Nib": 1}, monsters=[monster(hp=500)])
+s.hand_size = 7
+s.play(card("Fiend Fire", 1), 0)
+check("Pen Nib doubles every Fiend Fire instance (6 x 36)", s.hp_damage, 216)
 
 print()
 print("Fiend Fire and the powers that share a key")

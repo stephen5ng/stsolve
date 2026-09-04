@@ -50,7 +50,8 @@ class Sim:
     """Mutable turn state. Cheap to deep-copy, which is how search branches."""
 
     def __init__(self, energy, hp, block, player_powers, monsters, deck,
-                 draw_pile=None, max_hp=None, sacred_bark=False, hand_size=0):
+                 draw_pile=None, max_hp=None, sacred_bark=False, hand_size=0,
+                 relics=None, pen_nib_counter=None):
         self.sacred_bark = sacred_bark
         self.energy = energy
         self.hp = hp
@@ -79,12 +80,16 @@ class Sim:
         # Every card in hand, including the unplayable ones -- Fiend Fire
         # exhausts Wounds and Slimed too, and is paid per card exhausted.
         self.hand_size = hand_size
+        self.relics = set(relics or ())
+        # Pen Nib counts attack CARDS. The game arms the doubling at 9 and
+        # parks the counter at -1 until the armed attack is played.
+        self.pen_nib_counter = pen_nib_counter
         self.log = []
 
     def clone(self):
         s = Sim(self.energy, self.hp, self.block, self.pp, self.monsters,
                 self.deck, self.draw_pile, self.max_hp, self.sacred_bark,
-                self.hand_size)
+                self.hand_size, self.relics, self.pen_nib_counter)
         s.damage_dealt = self.damage_dealt
         s.hp_damage = self.hp_damage
         s.self_damage = self.self_damage
@@ -100,8 +105,12 @@ class Sim:
     def alive(self):
         return [m for m in self.monsters if not m["gone"] and m["hp"] > 0]
 
-    def _attack_damage(self, base, target):
+    def _attack_damage(self, base, target, double=False):
         d = base + self.pp.get("Strength", 0)
+        if double:
+            # Pen Nib doubles after Strength and before Weak -- the order the
+            # game's own damage calculation uses.
+            d *= 2
         if "Weakened" in self.pp:
             d = int(d * 0.75)
         if "Vulnerable" in target["powers"]:
@@ -286,18 +295,24 @@ class Sim:
             base, hits, hits_all = ATTACKS[name]
             if name.startswith("Perfected Strike"):
                 base = perfected_strike_damage(self.deck, name.endswith("+"))
+            if "Strike Dummy" in self.relics and "Strike" in name:
+                # +3 per HIT, not per card: a 2-hit Twin Strike killed a 16 HP
+                # Darkling, which 5+5+3 could not have done.
+                base += 3
             if name.startswith("Whirlwind"):
                 hits = spend
             if name in EXHAUSTS_HAND:
                 hits = self.hand_size
             healed_this_card = 0
+            pen_nib = bool(self.pp.pop("Pen Nib", 0))
             targets = self.alive() if hits_all else (
                 [self.monsters[target_idx]] if target_idx is not None else [])
             for _ in range(hits or 0):
                 for t in list(targets):
                     if t["gone"]:
                         continue
-                    total, hp = self._apply(t, self._attack_damage(base, t))
+                    total, hp = self._apply(
+                        t, self._attack_damage(base, t, double=pen_nib))
                     self.damage_dealt += total
                     self.hp_damage += hp
                     healed_this_card += hp
@@ -305,6 +320,11 @@ class Sim:
                         t["powers"]["Flight"] -= 1
                     if not t["gone"]:
                         self._on_attacked(t)
+            if self.pen_nib_counter is not None:
+                self.pen_nib_counter += 1
+                if self.pen_nib_counter == 9:
+                    self.pp["Pen Nib"] = 1
+                    self.pen_nib_counter = -1
             if name in EXHAUSTS_HAND:
                 self.hand_size = 0
             if name in LIFESTEAL:

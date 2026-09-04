@@ -36,6 +36,9 @@ def parse(state):
         "deck": g.get("deck", []),
         "draw_pile": [c["name"] for c in cs.get("draw_pile", [])],
         "hand_size": len(cs.get("hand", [])),
+        "relics": [r["name"] for r in g.get("relics", [])],
+        "pen_nib_counter": next((r.get("counter") for r in g.get("relics", [])
+                                 if r["name"] == "Pen Nib"), None),
     }
 
 

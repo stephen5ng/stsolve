@@ -116,10 +116,12 @@ Corruption are worth zero within a single turn and enormous across a fight, so
 scoring them at their true single-turn value would be actively misleading. They
 trip the INCOMPLETE warning instead, which is the honest output.
 
-**Relic effects are invisible.** Strike Dummy (+3 to cards named "Strike") and
-Pen Nib (every 10th attack deals double) both change real damage numbers and
-neither is modelled -- and because the unknown-card check only inspects your
-hand, relics don't trigger a warning either.
+**Two relics are modelled: Strike Dummy and Pen Nib.** Strike Dummy adds 3 per
+HIT to cards named "Strike" (a 2-hit Twin Strike killed a 16 HP Darkling, which
+5+5+3 could not have done). Pen Nib counts attack cards, arms at 9, and doubles
+after Strength but before Weak. Every other relic is still invisible, and
+because the unknown-card check only inspects your hand, relics never trigger a
+warning -- so a relic the model does not know about fails silently.
 
 **Intent damage is a snapshot, not a base value.** CommunicationMod's
 `move_adjusted_damage` already includes the monster's Strength, any Weak on it,
