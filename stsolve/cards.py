@@ -25,7 +25,9 @@ ATTACKS = {
 
 # name -> block gained
 BLOCKS = {
-    "Defend": 5, "Shrug It Off": 8, "Iron Wave": 5,
+    "Defend": 5, "Defend+": 8,
+    "Shrug It Off": 8, "Shrug It Off+": 11,
+    "Iron Wave": 5, "Iron Wave+": 7,
     "True Grit": 7, "True Grit+": 9,
     "Power Through": 15, "Power Through+": 20,
     "Flame Barrier": 12, "Ghostly Armor+": 13,

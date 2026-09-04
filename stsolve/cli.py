@@ -73,9 +73,11 @@ def render(state):
             idx, label, m["hp"], m["block"],
             " ".join("%s%s" % (k, v) for k, v in m["powers"].items())))
     from .cards import ATTACKS, BLOCKS
-    from .sim import POWERS, ENERGY_CARDS, DRAW_CARDS, ADDS_TO_HAND
+    from .sim import (POWERS, ENERGY_CARDS, DRAW_CARDS, ADDS_TO_HAND,
+                      STRENGTH_CARDS, DEBUFF_ALL)
     known = set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS) \
-        | set(DRAW_CARDS) | set(ADDS_TO_HAND)
+        | set(DRAW_CARDS) | set(ADDS_TO_HAND) \
+        | set(STRENGTH_CARDS) | set(DEBUFF_ALL)
     unknown = sorted({c["name"] for c in cs["hand"]
                       if c["name"] not in known and c["cost"] >= 0})
     r = frontier(state)

@@ -10,8 +10,11 @@ from .cards import ATTACKS, BLOCKS, perfected_strike_damage
 
 # Cards whose effect isn't just "deal damage" or "gain block".
 POWERS = {"Metallicize": 3, "Berserk": 1}
+STRENGTH_CARDS = {"Inflame": 2, "Inflame+": 3, "Flex": 2, "Flex+": 4}
+# name -> (weak, vulnerable) applied to ALL enemies
+DEBUFF_ALL = {"Shockwave": (3, 3), "Shockwave+": (5, 5)}
 ENERGY_CARDS = {"Bloodletting": (2, 3), "Bloodletting+": (3, 3)}  # (energy, hp cost)
-DRAW_CARDS = {"Shrug It Off": 1, "Pommel Strike": 1, "Battle Trance": 3,
+DRAW_CARDS = {"Shrug It Off": 1, "Shrug It Off+": 1, "Pommel Strike": 1, "Battle Trance": 3,
               "Master of Strategy": 3, "Warcry": 1, "Warcry+": 2}
 # Cards that add unplayable junk to hand when played.
 ADDS_TO_HAND = {"Power Through": 2, "Power Through+": 2}
@@ -105,6 +108,18 @@ class Sim:
                 b = int(b * 0.75)
             self.block += b
 
+        if name in STRENGTH_CARDS:
+            self.pp["Strength"] = self.pp.get("Strength", 0) + STRENGTH_CARDS[name]
+
+        if name in DEBUFF_ALL:
+            weak, vuln = DEBUFF_ALL[name]
+            for t in self.alive():
+                if t["powers"].get("Artifact", 0) > 0:
+                    t["powers"]["Artifact"] -= 1
+                    continue
+                t["powers"]["Vulnerable"] = vuln
+                t["powers"]["Weakened"] = weak
+
         if name in POWERS:
             self.pp[name] = self.pp.get(name, 0) + POWERS[name]
             if name == "Berserk":
@@ -148,7 +163,13 @@ class Sim:
     def end_turn(self):
         """Resolve end of turn and return HP lost this turn (incl. self-damage)."""
         block = self.block + self.pp.get("Metallicize", 0)
-        incoming = sum(m["intent_damage"] * m["intent_hits"]
-                       for m in self.alive() if m["intent_damage"] > 0)
+        incoming = 0
+        for m in self.alive():
+            if m["intent_damage"] <= 0:
+                continue
+            dmg = m["intent_damage"] * m["intent_hits"]
+            if "Weakened" in m["powers"]:
+                dmg = int(dmg * 0.75)
+            incoming += dmg
         taken = max(0, incoming - block)
         return self.self_damage + taken
