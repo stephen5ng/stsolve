@@ -72,16 +72,12 @@ def render(state):
         out.append("   #%d %-26s %3d hp  %3d blk  %s" % (
             idx, label, m["hp"], m["block"],
             " ".join("%s%s" % (k, v) for k, v in m["powers"].items())))
-    from .cards import ATTACKS, BLOCKS
-    from .sim import (POWERS, ENERGY_CARDS, DRAW_CARDS, ADDS_TO_HAND,
-                      STRENGTH_CARDS, DEBUFF_ALL, CONDITIONAL_STRENGTH,
-                      DOUBLE_BLOCK)
-    known = set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS) \
-        | set(DRAW_CARDS) | set(ADDS_TO_HAND) \
-        | set(STRENGTH_CARDS) | set(DEBUFF_ALL) \
-        | set(CONDITIONAL_STRENGTH) | set(DOUBLE_BLOCK)
+    from .sim import KNOWN_CARDS
+    from .potions import POTIONS, UNSCOREABLE
     unknown = sorted({c["name"] for c in cs["hand"]
-                      if c["name"] not in known and c["cost"] >= 0})
+                      if c["name"] not in KNOWN_CARDS and c["cost"] >= 0})
+    usable = [p["name"] for p in g.get("potions", []) if p.get("can_use")]
+    unknown_potions = sorted({n for n in usable if n not in POTIONS})
     r = frontier(state)
     out.append("   (%d sequences)%s" % (
         r["considered"],
@@ -91,14 +87,24 @@ def render(state):
         out.append("   !! UNMODELLED IN HAND: %s -- frontier is INCOMPLETE,"
                    % ", ".join(unknown))
         out.append("      these cards were treated as doing nothing")
+    if unknown_potions:
+        why = ("known but not scoreable in one turn"
+               if all(n in UNSCOREABLE for n in unknown_potions) else "unknown")
+        out.append("   !! UNMODELLED POTION: %s (%s) -- treated as doing nothing"
+                   % (", ".join(unknown_potions), why))
     if r["lethal"]:
         out.append("   LETHAL: %s" % " -> ".join(r["lethal"]["line"]))
     zero = [p for p in r["frontier"] if p["hp_lost"] == 0]
     if not zero:
         out.append("   no line takes zero damage")
     for p in r["frontier"]:
-        out.append("   dmg %-4d  hp -%-4d %s" % (
-            p["damage"], p["hp_lost"], " -> ".join(p["line"]) or "(end turn)"))
+        # hp_lost goes negative when healing outweighs damage taken.
+        hp = "hp %s%-4d" % ("-" if p["hp_lost"] >= 0 else "+", abs(p["hp_lost"]))
+        out.append("   dmg %-4d  %s %s%s" % (
+            p["damage"], hp,
+            "" if not p["potions"] else "(%d potion%s) " % (
+                p["potions"], "" if p["potions"] == 1 else "s"),
+            " -> ".join(p["line"]) or "(end turn)"))
     return "\n".join(out)
 
 

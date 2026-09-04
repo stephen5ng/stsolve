@@ -8,6 +8,7 @@ import copy
 
 from .cards import (ATTACKS, BLOCKS, perfected_strike_damage,
                     SELF_DAMAGE, LIFESTEAL)
+from .potions import POTIONS, value as potion_value
 
 # Cards whose effect isn't just "deal damage" or "gain block".
 POWERS = {"Metallicize": 3, "Berserk": 1}
@@ -24,11 +25,20 @@ DRAW_CARDS = {"Shrug It Off": 1, "Shrug It Off+": 1, "Pommel Strike": 1, "Battle
 ADDS_TO_HAND = {"Power Through": 2, "Power Through+": 2}
 
 
+# Every card name the model understands. cli.py warns about anything in hand
+# that isn't here; the upgrade path checks it to know that "X+" is a real card.
+KNOWN_CARDS = (set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS)
+               | set(DRAW_CARDS) | set(ADDS_TO_HAND) | set(STRENGTH_CARDS)
+               | set(DEBUFF_ALL) | set(CONDITIONAL_STRENGTH) | set(DOUBLE_BLOCK)
+               | set(SELF_DAMAGE) | set(LIFESTEAL))
+
+
 class Sim:
     """Mutable turn state. Cheap to deep-copy, which is how search branches."""
 
     def __init__(self, energy, hp, block, player_powers, monsters, deck,
-                 draw_pile=None, max_hp=None):
+                 draw_pile=None, max_hp=None, sacred_bark=False):
+        self.sacred_bark = sacred_bark
         self.energy = energy
         self.hp = hp
         self.max_hp = max_hp if max_hp is not None else hp
@@ -40,14 +50,18 @@ class Sim:
         self.damage_dealt = 0      # total, incl. damage eaten by block
         self.hp_damage = 0         # damage that actually removed HP
         self.self_damage = 0          # Sharp Hide, Bloodletting
+        self.healed = 0            # lifesteal and potions, capped at max HP
+        self.potions_used = 0
         self.log = []
 
     def clone(self):
         s = Sim(self.energy, self.hp, self.block, self.pp, self.monsters,
-                self.deck, self.draw_pile, self.max_hp)
+                self.deck, self.draw_pile, self.max_hp, self.sacred_bark)
         s.damage_dealt = self.damage_dealt
         s.hp_damage = self.hp_damage
         s.self_damage = self.self_damage
+        s.healed = self.healed
+        s.potions_used = self.potions_used
         s.log = list(self.log)
         return s
 
@@ -64,6 +78,16 @@ class Sim:
         if target["powers"].get("Flight", 0) > 0:
             d = int(d * 0.5)
         return max(0, d)
+
+    def _heal(self, amount):
+        """Heal, and record only the part that isn't wasted against max HP.
+
+        This is why Reaper scores as nothing at full HP: the lifesteal has
+        nowhere to go, so it does not offset any damage taken.
+        """
+        gained = max(0, min(amount, self.max_hp - self.hp))
+        self.hp += gained
+        self.healed += gained
 
     def _apply(self, target, dmg):
         """Damage eats block first, then HP. Returns (total, hp_removed)."""
@@ -95,9 +119,75 @@ class Sim:
     def playable(self, card):
         return card["cost"] >= 0 and card["cost"] <= self.energy
 
+    def use(self, card, target_idx=None):
+        """Play a card or drink a potion, whichever this entry is."""
+        if card.get("potion"):
+            return self.drink(card, target_idx)
+        return self.play(card, target_idx)
+
+    def drink(self, potion, target_idx=None):
+        """Apply a potion. Drinking is free, so no energy is spent.
+
+        Potion damage is not an Attack: it ignores Strength and your own Weak,
+        but the target's Vulnerable still multiplies it.
+        """
+        name = potion["name"]
+        self.potions_used += 1
+        self.log.append("drink %s" % name if target_idx is None
+                        else "drink %s->%d" % (name, target_idx))
+        eff = POTIONS.get(name)
+        if eff is None:
+            return self                      # unmodelled; the CLI warns
+        v = lambda k: potion_value(eff, k, self.sacred_bark)
+
+        if "energy" in eff:
+            self.energy += v("energy")
+        if "block" in eff:
+            self.block += v("block")
+        if "strength" in eff:
+            self.pp["Strength"] = self.pp.get("Strength", 0) + v("strength")
+        if "dexterity" in eff:
+            self.pp["Dexterity"] = self.pp.get("Dexterity", 0) + v("dexterity")
+        for power in ("metallicize", "plated_armor", "intangible", "artifact",
+                      "regen"):
+            if power in eff:
+                key = {"metallicize": "Metallicize", "plated_armor": "Plated Armor",
+                       "intangible": "Intangible", "artifact": "Artifact",
+                       "regen": "Regen"}[power]
+                self.pp[key] = self.pp.get(key, 0) + v(power)
+        if "heal_pct" in eff:
+            self._heal(self.max_hp * v("heal_pct") // 100)
+
+        hit = []
+        if "damage_all" in eff:
+            hit = [(t, v("damage_all")) for t in self.alive()]
+        elif "damage" in eff and target_idx is not None:
+            hit = [(self.monsters[target_idx], v("damage"))]
+        for t, base in hit:
+            if t["gone"]:
+                continue
+            dmg = base
+            if "Vulnerable" in t["powers"]:
+                dmg = int(dmg * 1.5)
+            total, hp = self._apply(t, dmg)
+            self.damage_dealt += total
+            self.hp_damage += hp
+
+        for key, power in (("vulnerable", "Vulnerable"), ("weak", "Weakened")):
+            if key not in eff or target_idx is None:
+                continue
+            t = self.monsters[target_idx]
+            if t["powers"].get("Artifact", 0) > 0:
+                t["powers"]["Artifact"] -= 1
+            else:
+                t["powers"][power] = v(key)
+        return self
+
     def play(self, card, target_idx=None):
         name, cost = card["name"], card["cost"]
-        spend = self.energy if name == "Whirlwind" else cost
+        # X-cost: startswith, not ==, or Whirlwind+ silently spends 0 and
+        # therefore deals nothing.
+        spend = self.energy if name.startswith("Whirlwind") else cost
         self.energy -= spend
         self.log.append(name if target_idx is None else "%s->%d" % (name, target_idx))
 
@@ -121,7 +211,7 @@ class Sim:
             self.self_damage += hp_cost
 
         if name in BLOCKS:
-            b = BLOCKS[name]
+            b = BLOCKS[name] + self.pp.get("Dexterity", 0)
             if "Frail" in self.pp:
                 b = int(b * 0.75)
             self.block += b
@@ -165,7 +255,7 @@ class Sim:
                     if not t["gone"]:
                         self._on_attacked(t)
             if name in LIFESTEAL:
-                self.hp = min(self.max_hp, self.hp + healed_this_card)
+                self._heal(healed_this_card)
 
             # Bash applies Vulnerable unless Artifact eats it
             if name.startswith("Bash"):
@@ -185,18 +275,26 @@ class Sim:
     # ------------------------------------------------------- end of turn score
     def end_turn(self):
         """Resolve end of turn and return HP lost this turn (incl. self-damage)."""
-        block = self.block + self.pp.get("Metallicize", 0)
-        incoming = 0
-        for m in self.alive():
-            if m["intent_damage"] <= 0:
-                continue
-            dmg = m["intent_damage"] * m["intent_hits"]
-            if "Weakened" in m["powers"]:
-                dmg = int(dmg * 0.75)
-            incoming += dmg
-        # Vulnerable on YOU raises incoming by 50%. Berserk applies it to
-        # yourself, so any line playing Berserk pays for it the same turn.
-        if "Vulnerable" in self.pp:
-            incoming = int(incoming * 1.5)
+        block = (self.block + self.pp.get("Metallicize", 0)
+                 + self.pp.get("Plated Armor", 0))
+        if self.pp.get("Intangible", 0):
+            # Intangible caps every instance of damage at 1, after all other
+            # modifiers, so hit count is the only thing that matters.
+            incoming = sum(m["intent_hits"] for m in self.alive()
+                           if m["intent_damage"] > 0)
+        else:
+            incoming = 0
+            for m in self.alive():
+                if m["intent_damage"] <= 0:
+                    continue
+                dmg = m["intent_damage"] * m["intent_hits"]
+                if "Weakened" in m["powers"]:
+                    dmg = int(dmg * 0.75)
+                incoming += dmg
+            # Vulnerable on YOU raises incoming by 50%. Berserk applies it to
+            # yourself, so any line playing Berserk pays for it the same turn.
+            if "Vulnerable" in self.pp:
+                incoming = int(incoming * 1.5)
         taken = max(0, incoming - block)
-        return self.self_damage + taken
+        self._heal(self.pp.get("Regen", 0))
+        return self.self_damage + taken - self.healed

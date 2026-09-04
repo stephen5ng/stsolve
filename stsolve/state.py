@@ -26,6 +26,7 @@ def parse(state):
             "intent_hits": m.get("move_hits", 1) or 1,
         })
     return {
+        "sacred_bark": any(r["name"] == "Sacred Bark" for r in g.get("relics", [])),
         "energy": p["energy"],
         "hp": g["current_hp"],
         "max_hp": g.get("max_hp"),
@@ -35,6 +36,24 @@ def parse(state):
         "deck": g.get("deck", []),
         "draw_pile": [c["name"] for c in cs.get("draw_pile", [])],
     }
+
+
+def potions(state):
+    """Usable potions as pseudo-cards. Drinking is free, so cost is 0.
+
+    can_use is False for potions that cannot be drunk right now, which is how
+    passives like Fairy in a Bottle correctly stay out of the search.
+    """
+    from .potions import POTIONS
+    out = []
+    for p in state["game_state"].get("potions", []):
+        if not p.get("can_use"):
+            continue
+        eff = POTIONS.get(p["name"], {})
+        out.append({"name": p["name"], "cost": 0, "potion": True,
+                    "targeted": bool(eff.get("targeted")),
+                    "upgrades_hand": bool(eff.get("upgrades_hand"))})
+    return out
 
 
 def hand(state):

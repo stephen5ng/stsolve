@@ -4,6 +4,7 @@
 # name -> (base_damage, hits, hits_all)
 ATTACKS = {
     "Strike":           (6, 1, False),
+    "Strike+":          (9, 1, False),
     "Bash":             (8, 1, False),
     "Bash+":            (10, 1, False),
     "Cleave":           (8, 1, True),
@@ -17,6 +18,7 @@ ATTACKS = {
     "Perfected Strike": (None, 1, False),   # 6 + 2 per "Strike" card in deck
     "Whirlwind":        (5, None, True),    # X hits, X = energy spent
     "Immolate":         (21, 1, True),      # also adds a Burn to the discard
+    "Immolate+":        (28, 1, True),
     "Clash":            (14, 1, False),
     "Pommel Strike":    (9, 1, False),
     "Uppercut":         (13, 1, False),

@@ -6,8 +6,8 @@ solver deliberately does not make for you.
 """
 import itertools
 
-from .sim import Sim, DRAW_CARDS
-from .state import parse, hand as parse_hand
+from .sim import Sim, DRAW_CARDS, KNOWN_CARDS
+from .state import parse, hand as parse_hand, potions as parse_potions
 
 MAX_SEQUENCES = 3000000
 
@@ -16,6 +16,23 @@ def _targets(sim, card):
     if not card["targeted"]:
         return [None]
     return [i for i, m in enumerate(sim.monsters) if not m["gone"] and m["hp"] > 0]
+
+
+def _upgraded(cards):
+    """Hand after Blessing of the Forge.
+
+    Costs are left alone: under Snecko Eye the live cost is random anyway, and
+    the model has no table of upgraded costs. That understates the handful of
+    cards that get cheaper when upgraded.
+    """
+    out = []
+    for c in cards:
+        up = c["name"] + "+"
+        if c["name"].endswith("+") or up not in KNOWN_CARDS:
+            out.append(c)
+        else:
+            out.append(dict(c, name=up))
+    return out
 
 
 def enumerate_lines(sim0, cards, max_depth=6):
@@ -37,8 +54,9 @@ def enumerate_lines(sim0, cards, max_depth=6):
             rest = remaining[:i] + remaining[i + 1:]
             for tgt in _targets(sim, card):
                 nxt = sim.clone()
-                nxt.play(card, tgt)
-                rec(nxt, rest, seq + [(card, tgt)])
+                nxt.use(card, tgt)
+                rec(nxt, _upgraded(rest) if card.get("upgrades_hand") else rest,
+                    seq + [(card, tgt)])
 
     rec(sim0, cards, [])
     return results, seen > MAX_SEQUENCES
@@ -50,8 +68,11 @@ def frontier(state, max_depth=6):
     if kw is None:
         return None
     sim0 = Sim(**kw)
-    cards = parse_hand(state)
-    lines, truncated = enumerate_lines(sim0, cards, max_depth)
+    potions = parse_potions(state)
+    cards = parse_hand(state) + potions
+    # Potions are free, so they would otherwise crowd out real cards at the
+    # depth limit.
+    lines, truncated = enumerate_lines(sim0, cards, max_depth + len(potions))
 
     scored = []
     for sim, seq in lines:
@@ -62,18 +83,51 @@ def frontier(state, max_depth=6):
             "raw_damage": sim.damage_dealt,
             "hp_lost": hp_lost,
             "lethal": killed_all,
-            "line": [c["name"] if t is None else "%s->#%d %s" % (
-                c["name"], t, sim.monsters[t].get("id") or sim.monsters[t]["name"])
+            "potions": sim.potions_used,
+            "line": [("drink " if c.get("potion") else "") + (
+                c["name"] if t is None else "%s->#%d %s" % (
+                    c["name"], t,
+                    sim.monsters[t].get("id") or sim.monsters[t]["name"]))
                      for c, t in seq],
             "draws": [c["name"] for c, _ in seq if c["name"] in DRAW_CARDS],
         })
 
-    # Pareto: maximise damage, minimise hp_lost
-    scored.sort(key=lambda r: (-r["damage"], r["hp_lost"]))
-    best, front = None, []
-    for r in scored:
-        if best is None or r["hp_lost"] < best:
-            front.append(r)
-            best = r["hp_lost"]
+    front = _pareto(scored)
+    lethal = min((r for r in scored if r["lethal"]),
+                 key=lambda r: (r["potions"], r["hp_lost"]), default=None)
     return {"frontier": front, "considered": len(lines), "truncated": truncated,
-            "lethal": next((r for r in scored if r["lethal"]), None)}
+            "lethal": lethal}
+
+
+def _pareto(scored):
+    """Maximise damage, minimise HP lost, minimise potions spent.
+
+    Potions are a third axis rather than a free resource: a line that wins by
+    two points of damage and a Fire Potion should not hide the line that keeps
+    the potion. Grouping by potion count keeps the inner pass linear.
+    """
+    by_potions = {}
+    for r in scored:
+        by_potions.setdefault(r["potions"], []).append(r)
+
+    candidates = []
+    for group in by_potions.values():
+        group.sort(key=lambda r: (-r["damage"], r["hp_lost"]))
+        best = None
+        for r in group:
+            if best is None or r["hp_lost"] < best:
+                candidates.append(r)
+                best = r["hp_lost"]
+
+    def dominated(r):
+        return any(o is not r
+                   and o["damage"] >= r["damage"]
+                   and o["hp_lost"] <= r["hp_lost"]
+                   and o["potions"] <= r["potions"]
+                   and (o["damage"], -o["hp_lost"], -o["potions"])
+                       != (r["damage"], -r["hp_lost"], -r["potions"])
+                   for o in candidates)
+
+    front = [r for r in candidates if not dominated(r)]
+    front.sort(key=lambda r: (-r["damage"], r["hp_lost"], r["potions"]))
+    return front

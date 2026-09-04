@@ -35,8 +35,9 @@ attack hits scored     : 86
 ```
 
 The single miss is a Duplication Potion doubling a Whirlwind (observed 40,
-predicted 20) — an unmodelled potion, not a bad card value. Block cards score
-32/32.
+predicted 20). Potions are modelled now, but Duplication is one of the ones
+that cannot be scored in a single turn, so it still misses — by design, and
+loudly. Block cards score 32/32.
 
 ### Rules the log settled
 
@@ -120,8 +121,18 @@ Pen Nib (every 10th attack deals double) both change real damage numbers and
 neither is modelled -- and because the unknown-card check only inspects your
 hand, relics don't trigger a warning either.
 
+**Potions are modelled, but not all of them.** Drinking is free, so potions
+enter the search as zero-cost plays and form a third Pareto axis: a line is
+only shown if nothing else matches it on damage and HP while spending fewer
+potions. Values come from the game's own potion switch (via `sts_lightspeed`),
+not from memory. Potions whose effect a single-turn model cannot honestly
+score — anything that draws or generates random cards (Attack/Skill/Power
+Potion, Entropic Brew), acts across turns (Duplication, Cultist), or leaves the
+fight (Smoke Bomb, Fairy in a Bottle) — are named in `UNSCOREABLE` and trip a
+warning rather than being silently treated as no-ops.
+
 **Also out of scope:** anything multi-turn, card rewards, pathing, campfires,
-shops, potions, and whether a fight is worth taking at all.
+shops, and whether a fight is worth taking at all.
 
 ## Usage
 
