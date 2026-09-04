@@ -45,9 +45,10 @@ s = sim()
 s.drink(potion("Fire Potion", True), 0)
 check("Fire Potion deals 20", s.hp_damage, 20)
 
+# Logged: Time Eater at Vulnerable 5 went 321 -> 301 on a Fire Potion.
 s = sim(monsters=[monster(powers={"Vulnerable": 2})])
 s.drink(potion("Fire Potion", True), 0)
-check("Fire Potion x1.5 into Vulnerable", s.hp_damage, 30)
+check("Fire Potion ignores Vulnerable (20, not 30)", s.hp_damage, 20)
 
 s = sim(bark=True)
 s.drink(potion("Fire Potion", True), 0)
@@ -99,6 +100,31 @@ check("Reaper lifesteal is worthless at full HP", s.healed, 0)
 s = sim(hp=40, max_hp=80, monsters=[monster(hp=40)])
 s.play(card("Reaper", 2), 0)
 check("...and worth its damage when hurt", s.healed, 4)
+
+print()
+print("intent damage is a snapshot, not a base value")
+# move_adjusted_damage already includes everything in effect when the intent
+# was set. Re-applying those multipliers under-predicts the hit, which is the
+# dangerous direction to be wrong in.
+s = sim(monsters=[monster(dmg=7, hits=3, powers={"Weakened": 4})])
+check("pre-existing Weak is not applied again", s.end_turn(), 21)
+
+s = sim(hp=50, powers={"Vulnerable": 1}, monsters=[monster(dmg=26, hits=1)])
+check("pre-existing player Vulnerable is not applied again", s.end_turn(), 26)
+
+# Logged: a 7x3 intent, Weakened by Shockwave+ the same turn, landed as 6x3=18
+# -- floor(7*0.75)=5 per hit, not int(21*0.75)=15 on the total. (The real hit
+# was 6 because Time Warp had also just given +2 Strength, which is a separate
+# unmodelled gap.)
+s = sim(energy=3, monsters=[monster(hp=200, dmg=7, hits=3)])
+s.play(card("Shockwave+", 1), None)
+check("Weak applied THIS turn lands, and per hit", s.end_turn(), 15)
+
+s = sim(monsters=[monster(dmg=10, hits=2)])
+check("baseline: no Berserk", s.end_turn(), 20)
+s = sim(energy=3, monsters=[monster(dmg=10, hits=2)])
+s.play(card("Berserk", 0), None)
+check("Berserk's own Vulnerable does land, per hit", s.end_turn(), 30)
 
 print()
 print("Blessing of the Forge")

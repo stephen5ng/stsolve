@@ -45,6 +45,15 @@ class Sim:
         self.block = block
         self.pp = dict(player_powers)
         self.monsters = copy.deepcopy(monsters)
+        # An intent's move_adjusted_damage is a SNAPSHOT: it already accounts
+        # for the monster's Strength, any Weak on the monster, and any
+        # Vulnerable on you at the moment the intent was set. Re-applying those
+        # multipliers at end of turn double-counts them and under-predicts the
+        # hit. Only debuffs landed *after* the snapshot are missing from it, so
+        # record what was already there.
+        for m in self.monsters:
+            m.setdefault("weak_at_snapshot", "Weakened" in m["powers"])
+        self.vuln_at_snapshot = "Vulnerable" in self.pp
         self.deck = deck
         self.draw_pile = list(draw_pile or [])
         self.damage_dealt = 0      # total, incl. damage eaten by block
@@ -62,6 +71,7 @@ class Sim:
         s.self_damage = self.self_damage
         s.healed = self.healed
         s.potions_used = self.potions_used
+        s.vuln_at_snapshot = self.vuln_at_snapshot
         s.log = list(self.log)
         return s
 
@@ -128,8 +138,9 @@ class Sim:
     def drink(self, potion, target_idx=None):
         """Apply a potion. Drinking is free, so no energy is spent.
 
-        Potion damage is not an Attack: it ignores Strength and your own Weak,
-        but the target's Vulnerable still multiplies it.
+        Potion damage is not an Attack: it ignores Strength, your own Weak,
+        AND the target's Vulnerable. Verified against logged play -- a Fire
+        Potion into a Vulnerable-5 Time Eater dealt 20, not 30.
         """
         name = potion["name"]
         self.potions_used += 1
@@ -166,10 +177,7 @@ class Sim:
         for t, base in hit:
             if t["gone"]:
                 continue
-            dmg = base
-            if "Vulnerable" in t["powers"]:
-                dmg = int(dmg * 1.5)
-            total, hp = self._apply(t, dmg)
+            total, hp = self._apply(t, base)
             self.damage_dealt += total
             self.hp_damage += hp
 
@@ -284,17 +292,19 @@ class Sim:
                            if m["intent_damage"] > 0)
         else:
             incoming = 0
+            new_vuln = "Vulnerable" in self.pp and not self.vuln_at_snapshot
             for m in self.alive():
                 if m["intent_damage"] <= 0:
                     continue
-                dmg = m["intent_damage"] * m["intent_hits"]
-                if "Weakened" in m["powers"]:
-                    dmg = int(dmg * 0.75)
-                incoming += dmg
-            # Vulnerable on YOU raises incoming by 50%. Berserk applies it to
-            # yourself, so any line playing Berserk pays for it the same turn.
-            if "Vulnerable" in self.pp:
-                incoming = int(incoming * 1.5)
+                # Both multipliers apply per hit, not to the total: a 7x3
+                # intent at Strength 2 under Weak landed as 6x3=18, not
+                # int(27*0.75)=20.
+                per_hit = m["intent_damage"]
+                if "Weakened" in m["powers"] and not m["weak_at_snapshot"]:
+                    per_hit = int(per_hit * 0.75)
+                if new_vuln:
+                    per_hit = int(per_hit * 1.5)
+                incoming += per_hit * m["intent_hits"]
         taken = max(0, incoming - block)
         self._heal(self.pp.get("Regen", 0))
         return self.self_damage + taken - self.healed

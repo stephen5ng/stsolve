@@ -121,11 +121,20 @@ Pen Nib (every 10th attack deals double) both change real damage numbers and
 neither is modelled -- and because the unknown-card check only inspects your
 hand, relics don't trigger a warning either.
 
+**Intent damage is a snapshot, not a base value.** CommunicationMod's
+`move_adjusted_damage` already includes the monster's Strength, any Weak on it,
+and any Vulnerable on you *at the moment the intent was set*. Applying those
+multipliers again at end of turn double-counts them. The model only applies
+debuffs landed after the snapshot, and applies them per hit (a 7x3 intent under
+Weak lands as 6x3=18, not `int(21*0.75)`).
+
 **Potions are modelled, but not all of them.** Drinking is free, so potions
 enter the search as zero-cost plays and form a third Pareto axis: a line is
 only shown if nothing else matches it on damage and HP while spending fewer
 potions. Values come from the game's own potion switch (via `sts_lightspeed`),
-not from memory. Potions whose effect a single-turn model cannot honestly
+not from memory -- and potion damage ignores Strength, Weak *and* the target's
+Vulnerable, which the log settled (a Fire Potion into a Vulnerable-5 target
+dealt 20, not 30). Potions whose effect a single-turn model cannot honestly
 score — anything that draws or generates random cards (Attack/Skill/Power
 Potion, Entropic Brew), acts across turns (Duplication, Cultist), or leaves the
 fight (Smoke Bomb, Fairy in a Bottle) — are named in `UNSCOREABLE` and trip a
