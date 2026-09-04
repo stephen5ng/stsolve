@@ -127,6 +127,24 @@ s.play(card("Berserk", 0), None)
 check("Berserk's own Vulnerable does land, per hit", s.end_turn(), 30)
 
 print()
+print("Time Warp")
+# Time Eater at Time Warp 9: the 3rd card ends the turn, and the +2 Strength
+# it grants lands on that same turn's attack.
+tw = lambda n, **kw: monster(hp=300, powers={"Time Warp": n}, **kw)
+s = sim(energy=9, monsters=[tw(9, dmg=7, hits=3)])
+for i in range(5):
+    if s.playable(card("Strike", 1)):
+        s.play(card("Strike", 1), 0)
+check("turn ends after the 12th card", s.cards_played, 3)
+check("...and only 3 got played", s.turn_ended, True)
+check("Time Warp's +2 Strength hits the same turn", s.end_turn(), (7 + 2) * 3)
+
+s = sim(energy=9, monsters=[tw(9, dmg=7, hits=3)])
+s.drink(potion("Block Potion"))
+s.drink(potion("Energy Potion"))
+check("potions do not advance Time Warp", s.monsters[0]["powers"]["Time Warp"], 9)
+
+print()
 print("Blessing of the Forge")
 hand = [card("Strike"), card("Twin Strike"), card("Whirlwind", 0),
         card("Bludgeon+"), card("Burning Pact+")]

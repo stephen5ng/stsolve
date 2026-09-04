@@ -61,6 +61,8 @@ class Sim:
         self.self_damage = 0          # Sharp Hide, Bloodletting
         self.healed = 0            # lifesteal and potions, capped at max HP
         self.potions_used = 0
+        self.cards_played = 0
+        self.turn_ended = False    # Time Warp can end your turn early
         self.log = []
 
     def clone(self):
@@ -72,6 +74,8 @@ class Sim:
         s.healed = self.healed
         s.potions_used = self.potions_used
         s.vuln_at_snapshot = self.vuln_at_snapshot
+        s.cards_played = self.cards_played
+        s.turn_ended = self.turn_ended
         s.log = list(self.log)
         return s
 
@@ -127,7 +131,23 @@ class Sim:
 
     # ------------------------------------------------------------- play a card
     def playable(self, card):
+        if self.turn_ended:
+            return False
         return card["cost"] >= 0 and card["cost"] <= self.energy
+
+    def _tick_time_warp(self):
+        """Time Eater: every 12 cards YOU play, your turn ends and it gains 2
+        Strength -- and that Strength lands on the attack resolving at the end
+        of the very turn you triggered it. Potions do not count as cards.
+        """
+        for m in self.alive():
+            if "Time Warp" not in m["powers"]:
+                continue
+            m["powers"]["Time Warp"] += 1
+            if m["powers"]["Time Warp"] >= 12:
+                m["powers"]["Time Warp"] = 0
+                m["bonus_strength"] = m.get("bonus_strength", 0) + 2
+                self.turn_ended = True
 
     def use(self, card, target_idx=None):
         """Play a card or drink a potion, whichever this entry is."""
@@ -193,6 +213,8 @@ class Sim:
 
     def play(self, card, target_idx=None):
         name, cost = card["name"], card["cost"]
+        self.cards_played += 1
+        self._tick_time_warp()
         # X-cost: startswith, not ==, or Whirlwind+ silently spends 0 and
         # therefore deals nothing.
         spend = self.energy if name.startswith("Whirlwind") else cost
@@ -296,10 +318,19 @@ class Sim:
             for m in self.alive():
                 if m["intent_damage"] <= 0:
                     continue
+                # Strength gained after the snapshot has to be scaled by the
+                # multipliers the snapshot already baked in, then the whole
+                # thing by any that landed since.
+                bonus = m.get("bonus_strength", 0)
+                if bonus:
+                    if m["weak_at_snapshot"]:
+                        bonus = int(bonus * 0.75)
+                    if self.vuln_at_snapshot:
+                        bonus = int(bonus * 1.5)
                 # Both multipliers apply per hit, not to the total: a 7x3
                 # intent at Strength 2 under Weak landed as 6x3=18, not
                 # int(27*0.75)=20.
-                per_hit = m["intent_damage"]
+                per_hit = m["intent_damage"] + bonus
                 if "Weakened" in m["powers"] and not m["weak_at_snapshot"]:
                     per_hit = int(per_hit * 0.75)
                 if new_vuln:
