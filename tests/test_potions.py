@@ -127,6 +127,25 @@ s.play(card("Berserk", 0), None)
 check("Berserk's own Vulnerable does land, per hit", s.end_turn(), 30)
 
 print()
+print("Fiend Fire and the powers that share a key")
+s = sim(energy=3, monsters=[monster(hp=500)])
+s.hand_size = 7                      # Fiend Fire plus 6 others
+s.play(card("Fiend Fire", 1), 0)
+check("Fiend Fire pays per card exhausted (6 x 7)", s.hp_damage, 42)
+check("...and the hand is gone", s.hand_size, 0)
+
+s = sim(energy=3, powers={"Strength": 11}, monsters=[monster(hp=500)])
+s.hand_size = 7
+s.play(card("Fiend Fire", 1), 0)
+check("...with Strength on every instance (6 x 18)", s.hp_damage, 108)
+
+s = sim(energy=3, monsters=[monster(dmg=10)])
+s.play(card("Metallicize+", 2), None)
+check("Metallicize+ grants Metallicize, not 'Metallicize+'",
+      s.pp.get("Metallicize"), 4)
+check("...so end_turn actually blocks with it", s.end_turn(), 6)
+
+print()
 print("Time Warp")
 # Time Eater at Time Warp 9: the 3rd card ends the turn, and the +2 Strength
 # it grants lands on that same turn's attack.

@@ -6,7 +6,7 @@ solver deliberately does not make for you.
 """
 import itertools
 
-from .sim import Sim, DRAW_CARDS, KNOWN_CARDS
+from .sim import Sim, DRAW_CARDS, KNOWN_CARDS, EXHAUSTS_HAND
 from .state import parse, hand as parse_hand, potions as parse_potions
 
 MAX_SEQUENCES = 3000000
@@ -55,8 +55,12 @@ def enumerate_lines(sim0, cards, max_depth=6):
             for tgt in _targets(sim, card):
                 nxt = sim.clone()
                 nxt.use(card, tgt)
-                rec(nxt, _upgraded(rest) if card.get("upgrades_hand") else rest,
-                    seq + [(card, tgt)])
+                nxt_rest = rest
+                if card["name"] in EXHAUSTS_HAND:
+                    nxt_rest = []           # Fiend Fire exhausted all of it
+                elif card.get("upgrades_hand"):
+                    nxt_rest = _upgraded(rest)
+                rec(nxt, nxt_rest, seq + [(card, tgt)])
 
     rec(sim0, cards, [])
     return results, seen > MAX_SEQUENCES

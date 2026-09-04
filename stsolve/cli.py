@@ -72,10 +72,11 @@ def render(state):
         out.append("   #%d %-26s %3d hp  %3d blk  %s" % (
             idx, label, m["hp"], m["block"],
             " ".join("%s%s" % (k, v) for k, v in m["powers"].items())))
-    from .sim import KNOWN_CARDS
+    from .sim import KNOWN_CARDS, DELIBERATELY_UNSCORED
     from .potions import POTIONS, UNSCOREABLE
-    unknown = sorted({c["name"] for c in cs["hand"]
-                      if c["name"] not in KNOWN_CARDS and c["cost"] >= 0})
+    in_hand = {c["name"] for c in cs["hand"] if c["cost"] >= 0}
+    unknown = sorted(in_hand - KNOWN_CARDS)
+    unscored = sorted(in_hand & DELIBERATELY_UNSCORED)
     usable = [p["name"] for p in g.get("potions", []) if p.get("can_use")]
     unknown_potions = sorted({n for n in usable if n not in POTIONS})
     r = frontier(state)
@@ -87,6 +88,9 @@ def render(state):
         out.append("   !! UNMODELLED IN HAND: %s -- frontier is INCOMPLETE,"
                    % ", ".join(unknown))
         out.append("      these cards were treated as doing nothing")
+    if unscored:
+        out.append("   -- worth 0 this turn, huge across the fight, so left "
+                   "unscored on purpose: %s" % ", ".join(unscored))
     if unknown_potions:
         why = ("known but not scoreable in one turn"
                if all(n in UNSCOREABLE for n in unknown_potions) else "unknown")

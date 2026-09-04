@@ -11,7 +11,19 @@ from .cards import (ATTACKS, BLOCKS, perfected_strike_damage,
 from .potions import POTIONS, value as potion_value
 
 # Cards whose effect isn't just "deal damage" or "gain block".
-POWERS = {"Metallicize": 3, "Berserk": 1}
+# name -> (power the game actually grants, amount). The upgraded card grants
+# the same power, so both have to map onto the same key or end_turn misses it.
+POWERS = {"Metallicize": ("Metallicize", 3), "Metallicize+": ("Metallicize", 4),
+          "Berserk": ("Berserk", 1)}
+# Cards that exhaust your whole hand when played.
+EXHAUSTS_HAND = {"Fiend Fire", "Fiend Fire+"}
+# Known cards left unscored on purpose: worth zero this turn and enormous
+# across a fight, so scoring them honestly would be actively misleading.
+# These warn rather than being silently treated as nothing.
+DELIBERATELY_UNSCORED = {"Demon Form", "Demon Form+", "Barricade", "Barricade+",
+                         "Corruption", "Corruption+", "Brutality", "Brutality+",
+                         "Feel No Pain", "Feel No Pain+", "Dark Embrace",
+                         "Dark Embrace+", "Juggernaut", "Juggernaut+"}
 STRENGTH_CARDS = {"Inflame": 2, "Inflame+": 3, "Flex": 2, "Flex+": 4}
 # name -> (weak, vulnerable) applied to ALL enemies
 DEBUFF_ALL = {"Shockwave": (3, 3), "Shockwave+": (5, 5)}
@@ -28,6 +40,7 @@ ADDS_TO_HAND = {"Power Through": 2, "Power Through+": 2}
 # Every card name the model understands. cli.py warns about anything in hand
 # that isn't here; the upgrade path checks it to know that "X+" is a real card.
 KNOWN_CARDS = (set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS)
+               | set(DELIBERATELY_UNSCORED)
                | set(DRAW_CARDS) | set(ADDS_TO_HAND) | set(STRENGTH_CARDS)
                | set(DEBUFF_ALL) | set(CONDITIONAL_STRENGTH) | set(DOUBLE_BLOCK)
                | set(SELF_DAMAGE) | set(LIFESTEAL))
@@ -37,7 +50,7 @@ class Sim:
     """Mutable turn state. Cheap to deep-copy, which is how search branches."""
 
     def __init__(self, energy, hp, block, player_powers, monsters, deck,
-                 draw_pile=None, max_hp=None, sacred_bark=False):
+                 draw_pile=None, max_hp=None, sacred_bark=False, hand_size=0):
         self.sacred_bark = sacred_bark
         self.energy = energy
         self.hp = hp
@@ -63,11 +76,15 @@ class Sim:
         self.potions_used = 0
         self.cards_played = 0
         self.turn_ended = False    # Time Warp can end your turn early
+        # Every card in hand, including the unplayable ones -- Fiend Fire
+        # exhausts Wounds and Slimed too, and is paid per card exhausted.
+        self.hand_size = hand_size
         self.log = []
 
     def clone(self):
         s = Sim(self.energy, self.hp, self.block, self.pp, self.monsters,
-                self.deck, self.draw_pile, self.max_hp, self.sacred_bark)
+                self.deck, self.draw_pile, self.max_hp, self.sacred_bark,
+                self.hand_size)
         s.damage_dealt = self.damage_dealt
         s.hp_damage = self.hp_damage
         s.self_damage = self.self_damage
@@ -213,6 +230,7 @@ class Sim:
 
     def play(self, card, target_idx=None):
         name, cost = card["name"], card["cost"]
+        self.hand_size = max(0, self.hand_size - 1)
         self.cards_played += 1
         self._tick_time_warp()
         # X-cost: startswith, not ==, or Whirlwind+ silently spends 0 and
@@ -259,7 +277,8 @@ class Sim:
                 t["powers"]["Weakened"] = weak
 
         if name in POWERS:
-            self.pp[name] = self.pp.get(name, 0) + POWERS[name]
+            key, amount = POWERS[name]
+            self.pp[key] = self.pp.get(key, 0) + amount
             if name == "Berserk":
                 self.pp["Vulnerable"] = self.pp.get("Vulnerable", 0) + 2
 
@@ -269,6 +288,8 @@ class Sim:
                 base = perfected_strike_damage(self.deck, name.endswith("+"))
             if name.startswith("Whirlwind"):
                 hits = spend
+            if name in EXHAUSTS_HAND:
+                hits = self.hand_size
             healed_this_card = 0
             targets = self.alive() if hits_all else (
                 [self.monsters[target_idx]] if target_idx is not None else [])
@@ -284,6 +305,8 @@ class Sim:
                         t["powers"]["Flight"] -= 1
                     if not t["gone"]:
                         self._on_attacked(t)
+            if name in EXHAUSTS_HAND:
+                self.hand_size = 0
             if name in LIFESTEAL:
                 self._heal(healed_this_card)
 

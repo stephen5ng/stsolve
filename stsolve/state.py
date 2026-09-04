@@ -35,6 +35,7 @@ def parse(state):
         "monsters": monsters,
         "deck": g.get("deck", []),
         "draw_pile": [c["name"] for c in cs.get("draw_pile", [])],
+        "hand_size": len(cs.get("hand", [])),
     }
 
 

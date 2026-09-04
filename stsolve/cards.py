@@ -17,6 +17,8 @@ ATTACKS = {
     "Reckless Charge":  (7, 1, False),
     "Perfected Strike": (None, 1, False),   # 6 + 2 per "Strike" card in deck
     "Whirlwind":        (5, None, True),    # X hits, X = energy spent
+    "Fiend Fire":       (7, None, False),   # X hits, X = cards exhausted from hand
+    "Fiend Fire+":      (10, None, False),
     "Immolate":         (21, 1, True),      # also adds a Burn to the discard
     "Immolate+":        (28, 1, True),
     "Clash":            (14, 1, False),
