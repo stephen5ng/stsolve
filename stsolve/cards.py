@@ -6,6 +6,8 @@ ATTACKS = {
     "Strike":           (6, 1, False),
     "Strike+":          (9, 1, False),
     "Bash":             (8, 1, False),
+    "Neutralize":       (3, 1, False),      # also applies Weak 1
+    "Neutralize+":      (4, 1, False),      # Weak 2
     "Bash+":            (10, 1, False),
     "Cleave":           (8, 1, True),
     "Headbutt":         (9, 1, False),

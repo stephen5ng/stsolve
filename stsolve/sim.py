@@ -27,6 +27,10 @@ DELIBERATELY_UNSCORED = {"Demon Form", "Demon Form+", "Barricade", "Barricade+",
 STRENGTH_CARDS = {"Inflame": 2, "Inflame+": 3, "Flex": 2, "Flex+": 4}
 # name -> (weak, vulnerable) applied to ALL enemies
 DEBUFF_ALL = {"Shockwave": (3, 3), "Shockwave+": (5, 5)}
+# Attacks that debuff the single target they hit. name -> (weak, vulnerable).
+# The debuff lands even when the damage is fully blocked -- it is not applied
+# by the hit, it is applied by the card.
+DEBUFF_TARGET = {"Neutralize": (1, 0), "Neutralize+": (2, 0)}
 # Gain Strength only if the target is telegraphing an attack.
 CONDITIONAL_STRENGTH = {"Spot Weakness": 3, "Spot Weakness+": 4}
 DOUBLE_BLOCK = {"Entrench", "Entrench+"}
@@ -42,7 +46,8 @@ ADDS_TO_HAND = {"Power Through": 2, "Power Through+": 2}
 KNOWN_CARDS = (set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS)
                | set(DELIBERATELY_UNSCORED)
                | set(DRAW_CARDS) | set(ADDS_TO_HAND) | set(STRENGTH_CARDS)
-               | set(DEBUFF_ALL) | set(CONDITIONAL_STRENGTH) | set(DOUBLE_BLOCK)
+               | set(DEBUFF_ALL) | set(DEBUFF_TARGET)
+               | set(CONDITIONAL_STRENGTH) | set(DOUBLE_BLOCK)
                | set(SELF_DAMAGE) | set(LIFESTEAL))
 
 
@@ -353,6 +358,18 @@ class Sim:
                         t["powers"]["Artifact"] -= 1
                     else:
                         t["powers"]["Vulnerable"] = 3 if name == "Bash+" else 2
+            if name in DEBUFF_TARGET:
+                weak, vuln = DEBUFF_TARGET[name]
+                for t in targets:
+                    if t["powers"].get("Artifact", 0) > 0:
+                        t["powers"]["Artifact"] -= 1
+                        continue
+                    if weak:
+                        t["powers"]["Weakened"] = (
+                            t["powers"].get("Weakened", 0) + weak)
+                    if vuln:
+                        t["powers"]["Vulnerable"] = (
+                            t["powers"].get("Vulnerable", 0) + vuln)
             # Sharp Hide: 3 HP per ATTACK CARD played (verified, not per hit)
             for m in self.alive():
                 sh = m["powers"].get("Sharp Hide", 0)

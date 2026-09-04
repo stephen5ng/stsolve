@@ -253,6 +253,40 @@ s = sim(energy=3, monsters=[monster(hp=40, powers={"Malleable": 3,
 s.play(card("Strike"), 0)
 check("Malleable and Curl Up both fire", s.monsters[0]["block"], 10)
 
+print("Neutralize")
+s = sim(energy=3, monsters=[monster(hp=20)])
+s.play(card("Neutralize", 0), 0)
+check("Neutralize deals 3", s.monsters[0]["hp"], 17)
+check("...and applies Weak 1", s.monsters[0]["powers"].get("Weakened"), 1)
+
+s = sim(energy=3, monsters=[monster(hp=20)])
+s.play(card("Neutralize+", 0), 0)
+check("Neutralize+ deals 4 and Weak 2",
+      (s.monsters[0]["hp"], s.monsters[0]["powers"]["Weakened"]), (16, 2))
+
+# The reason the floor-1 targeting worked: Curl Up block stops the damage but
+# not the debuff, so Neutralize is the right card to throw into a raised wall.
+s = sim(energy=3, monsters=[monster(hp=13, powers={"Curl Up": 7})])
+s.play(card("Strike"), 0)
+s.play(card("Neutralize", 0), 0)
+check("Weak lands through Curl Up block",
+      s.monsters[0]["powers"].get("Weakened"), 1)
+check("...even though the 3 damage did not", s.monsters[0]["hp"], 7)
+
+# Artifact eats the debuff and the card still connects.
+s = sim(energy=3, monsters=[monster(hp=20, powers={"Artifact": 1})])
+s.play(card("Neutralize", 0), 0)
+check("Artifact eats the Weak", "Weakened" in s.monsters[0]["powers"], False)
+check("...but not the damage", s.monsters[0]["hp"], 17)
+
+# Weak applied after the intent snapshot is the only kind end_turn may scale,
+# and Neutralize is the cheapest way to create that case.
+m = monster(hp=20, dmg=12, hits=1)
+s = sim(energy=3, monsters=[m])
+check("un-Weakened intent lands whole", s.clone().end_turn(), 12)
+s.play(card("Neutralize", 0), 0)
+check("Neutralize shaves the incoming hit", s.end_turn(), 9)
+
 print()
 if FAILURES:
     print("%d FAILURE(S)" % len(FAILURES))
