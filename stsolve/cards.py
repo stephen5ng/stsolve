@@ -21,6 +21,25 @@ ATTACKS = {
     "Pommel Strike":    (9, 1, False),
     "Uppercut":         (13, 1, False),
     "Heavy Blade":      (14, 1, False),     # Strength counts 3x; not modelled
+    "Pommel Strike+":   (10, 1, False),
+    "Headbutt+":        (14, 1, False),
+    "Uppercut+":        (13, 1, False),
+    "Iron Wave+":       (7, 1, False),
+    "Twin Strike+":     (7, 2, False),
+    "Cleave+":          (11, 1, True),
+    "Carnage+":         (28, 1, False),
+    "Bludgeon+":        (42, 1, False),
+    "Bash++":           (12, 1, False),
+    "Whirlwind+":       (8, None, True),
+    "Hemokinesis":      (15, 1, False),      # also costs you 2 HP
+    "Hemokinesis+":     (18, 1, False),
+    "Dramatic Entrance": (8, 1, True),
+    "Hand of Greed":    (20, 1, False),
+    "Reaper":           (4, 1, True),        # heals for HP damage dealt
+    "Reaper+":          (5, 1, True),
+    "Clash+":           (18, 1, False),
+    "Wild Strike+":     (17, 1, False),
+    "Perfected Strike+": (None, 1, False),
 }
 
 # name -> block gained
@@ -30,13 +49,21 @@ BLOCKS = {
     "Iron Wave": 5, "Iron Wave+": 7,
     "True Grit": 7, "True Grit+": 9,
     "Power Through": 15, "Power Through+": 20,
-    "Flame Barrier": 12, "Ghostly Armor+": 13,
+    "Flame Barrier": 12, "Flame Barrier+": 16, "Ghostly Armor+": 13,
+    "Finesse": 2, "Finesse+": 4, "Sentinel": 5, "Sentinel+": 8,
 }
 
 
-def perfected_strike_damage(deck):
+def perfected_strike_damage(deck, upgraded=False):
     n = sum(1 for c in deck if "Strike" in c["name"])
-    return 6 + 2 * n
+    return 6 + (3 if upgraded else 2) * n
+
+
+# Cards that cost you HP when played.
+SELF_DAMAGE = {"Hemokinesis": 2, "Hemokinesis+": 2, "Offering": 6}
+
+# Attacks that heal you for the HP damage they deal.
+LIFESTEAL = {"Reaper", "Reaper+"}
 
 
 def predict_damage(card, energy_spent, deck, player_powers, monster_powers):
@@ -45,9 +72,9 @@ def predict_damage(card, energy_spent, deck, player_powers, monster_powers):
     if name not in ATTACKS:
         return None
     base, hits, _all = ATTACKS[name]
-    if name == "Perfected Strike":
-        base = perfected_strike_damage(deck)
-    if name == "Whirlwind":
+    if name.startswith("Perfected Strike"):
+        base = perfected_strike_damage(deck, name.endswith("+"))
+    if name.startswith("Whirlwind"):
         hits = energy_spent
     if base is None or hits is None:
         return None

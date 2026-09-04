@@ -110,6 +110,16 @@ Two real cases from the recorded run:
 Strength whenever you play a Skill) is invisible to the search, so it will
 happily recommend Skills into it. Flight and Malleable *are* modelled.
 
+**A few cards are left unmodelled on purpose.** Demon Form, Barricade and
+Corruption are worth zero within a single turn and enormous across a fight, so
+scoring them at their true single-turn value would be actively misleading. They
+trip the INCOMPLETE warning instead, which is the honest output.
+
+**Relic effects are invisible.** Strike Dummy (+3 to cards named "Strike") and
+Pen Nib (every 10th attack deals double) both change real damage numbers and
+neither is modelled -- and because the unknown-card check only inspects your
+hand, relics don't trigger a warning either.
+
 **Also out of scope:** anything multi-turn, card rewards, pathing, campfires,
 shops, potions, and whether a fight is worth taking at all.
 

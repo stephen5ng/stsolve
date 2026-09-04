@@ -28,6 +28,7 @@ def parse(state):
     return {
         "energy": p["energy"],
         "hp": g["current_hp"],
+        "max_hp": g.get("max_hp"),
         "block": p["block"],
         "player_powers": powers(p),
         "monsters": monsters,
