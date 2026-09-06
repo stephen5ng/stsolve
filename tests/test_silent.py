@@ -50,8 +50,7 @@ check("every Silent ATTACK is now modelled",
       [c for c in ("Slice", "Bane", "Quick Slash", "Dagger Throw+",
                    "Sucker Punch") if c in missing], [])
 check("what is left is block/utility and the power cards",
-      missing, ["After Image", "Choke", "Footwork", "Leg Sweep",
-                "Survivor", "Terror", "Wraith Form+"])
+      missing, ["After Image", "Choke", "Terror", "Wraith Form+"])
 
 print("\nattacks (all confirmed against the live log)")
 for name, want in (("Slice", 6), ("Slice+", 9), ("Bane", 7), ("Bane+", 10),
@@ -96,6 +95,57 @@ print("\ncyclers are card-neutral, not card-positive")
 # cycler was in the table.
 for name in ("Quick Slash", "Quick Slash+", "Dagger Throw", "Dagger Throw+"):
     check("%-16s is flagged as a draw card" % name, name in DRAW_CARDS, True)
+
+print("\nblock and utility")
+for name, want in (("Survivor", 8), ("Survivor+", 11), ("Deflect", 4),
+                   ("Leg Sweep", 11), ("Leg Sweep+", 14), ("Backflip", 5)):
+    s = sim()
+    s.play(card(name, 1), None)
+    check("%-16s blocks %d" % (name, want), s.block, want)
+
+print("\nFootwork scales every block card behind it")
+s = sim()
+s.play(card("Footwork", 1), None)
+check("Footwork grants Dexterity 2", s.pp.get("Dexterity"), 2)
+s.play(card("Defend", 1), None)
+check("...so a 5-block Defend blocks 7", s.block, 7)
+s.play(card("Leg Sweep", 2), 0)
+check("...and Leg Sweep blocks 13", s.block, 20)
+
+s = sim()
+s.play(card("Footwork+", 1), None)
+check("Footwork+ grants Dexterity 3", s.pp.get("Dexterity"), 3)
+
+print("\nLeg Sweep is block AND Weak")
+s = sim()
+s.play(card("Leg Sweep", 2), 0)
+check("Leg Sweep applies Weak 2", s.monsters[0]["powers"].get("Weakened"), 2)
+s = sim()
+s.play(card("Leg Sweep+", 2), 0)
+check("Leg Sweep+ applies Weak 3", s.monsters[0]["powers"].get("Weakened"), 3)
+
+# The Hexaghost turn, reproduced exactly. Divider is 6 hits of curHp/12+1,
+# locked in when Activate resolves -- at 62 HP that is 6 per hit, 36 total.
+# Weak applies PER HIT, so floor(6*0.75)=4 per hit is 24, not floor(36*0.75).
+# Observed: 20 block, 4 damage through, 62 -> 58.
+s = sim(hp=62, monsters=[monster(hp=224, dmg=6, hits=6)])
+s.play(card("Footwork", 1), None)
+s.play(card("Leg Sweep", 2), 0)
+s.play(card("Defend", 1), None)
+check("Hexaghost Divider: 20 block built", s.block, 20)
+check("...and Weak makes 6x6=36 land as 6x4=24, so 4 gets through",
+      s.end_turn(), 4)
+
+# Without the Weak the same block would have let 16 through -- the Weak was
+# worth more than the block on that turn, which is why Leg Sweep beat a
+# second Defend.
+s = sim(hp=62, monsters=[monster(hp=224, dmg=6, hits=6)])
+s.play(card("Footwork", 1), None)
+s.play(card("Defend", 1), None)
+s.play(card("Defend", 1), None)
+s.play(card("Defend", 1), None)
+check("three Defends instead: 21 block but no Weak, 15 through",
+      s.end_turn(), 15)
 
 print()
 if FAILURES:

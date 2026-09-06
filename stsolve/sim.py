@@ -31,7 +31,13 @@ DEBUFF_ALL = {"Shockwave": (3, 3), "Shockwave+": (5, 5)}
 # The debuff lands even when the damage is fully blocked -- it is not applied
 # by the hit, it is applied by the card.
 DEBUFF_TARGET = {"Neutralize": (1, 0), "Neutralize+": (2, 0),
-                 "Sucker Punch": (1, 0), "Sucker Punch+": (2, 0)}
+                 "Sucker Punch": (1, 0), "Sucker Punch+": (2, 0),
+                 # Leg Sweep is block AND Weak. Against a multi-hit intent the
+                 # Weak is worth more than the block: it cut Hexaghost's
+                 # Divider from 6x6 to 6x4 per hit, 36 down to 24.
+                 "Leg Sweep": (2, 0), "Leg Sweep+": (3, 0)}
+# Dexterity is to block what Strength is to damage.
+DEXTERITY_CARDS = {"Footwork": 2, "Footwork+": 3}
 # Gain Strength only if the target is telegraphing an attack.
 CONDITIONAL_STRENGTH = {"Spot Weakness": 3, "Spot Weakness+": 4}
 DOUBLE_BLOCK = {"Entrench", "Entrench+"}
@@ -52,7 +58,7 @@ ADDS_TO_HAND = {"Power Through": 2, "Power Through+": 2}
 KNOWN_CARDS = (set(ATTACKS) | set(BLOCKS) | set(POWERS) | set(ENERGY_CARDS)
                | set(DELIBERATELY_UNSCORED)
                | set(DRAW_CARDS) | set(ADDS_TO_HAND) | set(STRENGTH_CARDS)
-               | set(DEBUFF_ALL) | set(DEBUFF_TARGET)
+               | set(DEBUFF_ALL) | set(DEBUFF_TARGET) | set(DEXTERITY_CARDS)
                | set(CONDITIONAL_STRENGTH) | set(DOUBLE_BLOCK)
                | set(SELF_DAMAGE) | set(LIFESTEAL))
 
@@ -300,8 +306,27 @@ class Sim:
                 b = int(b * 0.75)
             self.block += b
 
+        # Targeted debuffs are applied by the CARD, not by a hit -- they land
+        # through block, and they are not confined to attacks. Leg Sweep is a
+        # Skill, so keying this off the ATTACKS branch silently dropped its
+        # Weak, which is the larger half of the card.
+        if name in DEBUFF_TARGET and target_idx is not None:
+            t = self.monsters[target_idx]
+            if t["powers"].get("Artifact", 0) > 0:
+                t["powers"]["Artifact"] -= 1
+            else:
+                weak, vuln = DEBUFF_TARGET[name]
+                if weak:
+                    t["powers"]["Weakened"] = t["powers"].get("Weakened", 0) + weak
+                if vuln:
+                    t["powers"]["Vulnerable"] = t["powers"].get("Vulnerable", 0) + vuln
+
         if name in STRENGTH_CARDS:
             self.pp["Strength"] = self.pp.get("Strength", 0) + STRENGTH_CARDS[name]
+
+        if name in DEXTERITY_CARDS:
+            self.pp["Dexterity"] = (self.pp.get("Dexterity", 0)
+                                    + DEXTERITY_CARDS[name])
 
         if name in DEBUFF_ALL:
             weak, vuln = DEBUFF_ALL[name]
@@ -364,18 +389,6 @@ class Sim:
                         t["powers"]["Artifact"] -= 1
                     else:
                         t["powers"]["Vulnerable"] = 3 if name == "Bash+" else 2
-            if name in DEBUFF_TARGET:
-                weak, vuln = DEBUFF_TARGET[name]
-                for t in targets:
-                    if t["powers"].get("Artifact", 0) > 0:
-                        t["powers"]["Artifact"] -= 1
-                        continue
-                    if weak:
-                        t["powers"]["Weakened"] = (
-                            t["powers"].get("Weakened", 0) + weak)
-                    if vuln:
-                        t["powers"]["Vulnerable"] = (
-                            t["powers"].get("Vulnerable", 0) + vuln)
             # Sharp Hide: 3 HP per ATTACK CARD played (verified, not per hit)
             for m in self.alive():
                 sh = m["powers"].get("Sharp Hide", 0)

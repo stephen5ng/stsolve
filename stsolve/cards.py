@@ -75,6 +75,14 @@ BLOCKS = {
     "Power Through": 15, "Power Through+": 20,
     "Flame Barrier": 12, "Flame Barrier+": 16, "Ghostly Armor+": 13,
     "Finesse": 2, "Finesse+": 4, "Sentinel": 5, "Sentinel+": 8,
+    # Silent block. Survivor also discards a card, which is how you pitch a
+    # Dazed before it can be shuffled back in; Leg Sweep also applies Weak.
+    "Survivor": 8, "Survivor+": 11,
+    "Deflect": 4, "Deflect+": 7,
+    "Dodge and Roll": 4, "Dodge and Roll+": 6,
+    "Leg Sweep": 11, "Leg Sweep+": 14,
+    "Backflip": 5, "Backflip+": 8,
+    "Cloak and Dagger": 6, "Cloak and Dagger+": 6,
 }
 
 
