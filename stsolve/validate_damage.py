@@ -17,7 +17,7 @@ from cards import ATTACKS, predict_damage
 
 
 def main():
-    states = load()
+    states = load(sys.argv[1]) if len(sys.argv) > 1 else load()
     _, trans = build(states)
     ok = bad = 0
     contaminated = collections.Counter()

@@ -6,7 +6,7 @@ sys.path.insert(0, __file__.rsplit("/", 1)[0])
 from transitions import load, build, combat, powers
 from cards import ATTACKS, BLOCKS
 
-states = load()
+states = load(sys.argv[1]) if len(sys.argv) > 1 else load()
 dedup, trans = build(states)
 
 
