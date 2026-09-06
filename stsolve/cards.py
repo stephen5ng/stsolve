@@ -6,6 +6,24 @@ ATTACKS = {
     "Strike":           (6, 1, False),
     "Strike+":          (9, 1, False),
     "Bash":             (8, 1, False),
+    # ---- Silent attacks. This model was built during an Ironclad run, so the
+    # whole green pool was missing and the frontier scored it as zero.
+    "Slice":            (6, 1, False),
+    "Slice+":           (9, 1, False),
+    # Bane doubles against a Poisoned target. Poison is not modelled at all,
+    # so this is the floor, not the value -- it under-reports in a poison deck.
+    "Bane":             (7, 1, False),
+    "Bane+":            (10, 1, False),
+    "Quick Slash":      (8, 1, False),       # also draws 1
+    "Quick Slash+":     (12, 1, False),
+    "Dagger Throw":     (9, 1, False),       # draws 1, discards 1
+    "Dagger Throw+":    (12, 1, False),
+    "Sucker Punch":     (7, 1, False),       # also applies Weak 1
+    "Sucker Punch+":    (9, 1, False),       # Weak 2
+    "Backstab":         (11, 1, False),      # Innate, Exhaust
+    "Backstab+":        (15, 1, False),
+    "Endless Agony":    (4, 1, False),       # auto-plays on draw, Exhaust
+    "Endless Agony+":   (6, 1, False),
     "Neutralize":       (3, 1, False),      # also applies Weak 1
     "Neutralize+":      (4, 1, False),      # Weak 2
     "Bash+":            (10, 1, False),

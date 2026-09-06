@@ -30,13 +30,19 @@ DEBUFF_ALL = {"Shockwave": (3, 3), "Shockwave+": (5, 5)}
 # Attacks that debuff the single target they hit. name -> (weak, vulnerable).
 # The debuff lands even when the damage is fully blocked -- it is not applied
 # by the hit, it is applied by the card.
-DEBUFF_TARGET = {"Neutralize": (1, 0), "Neutralize+": (2, 0)}
+DEBUFF_TARGET = {"Neutralize": (1, 0), "Neutralize+": (2, 0),
+                 "Sucker Punch": (1, 0), "Sucker Punch+": (2, 0)}
 # Gain Strength only if the target is telegraphing an attack.
 CONDITIONAL_STRENGTH = {"Spot Weakness": 3, "Spot Weakness+": 4}
 DOUBLE_BLOCK = {"Entrench", "Entrench+"}
 ENERGY_CARDS = {"Bloodletting": (2, 3), "Bloodletting+": (3, 3)}  # (energy, hp cost)
 DRAW_CARDS = {"Shrug It Off": 1, "Shrug It Off+": 1, "Pommel Strike": 1, "Battle Trance": 3,
-              "Master of Strategy": 3, "Warcry": 1, "Warcry+": 2}
+              "Master of Strategy": 3, "Warcry": 1, "Warcry+": 2,
+              # Silent cyclers. Dagger Throw discards one afterwards, so it is
+              # card-neutral rather than card-positive -- the value is filtering
+              # a dead Defend into a live card, not extra cards.
+              "Quick Slash": 1, "Quick Slash+": 1,
+              "Dagger Throw": 1, "Dagger Throw+": 1}
 # Cards that add unplayable junk to hand when played.
 ADDS_TO_HAND = {"Power Through": 2, "Power Through+": 2}
 
